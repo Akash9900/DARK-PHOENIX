@@ -398,6 +398,8 @@ class AiPodcastClipper:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
                                 detail="Incorrect bearer token", headers={"WWW-Authenticate": "Bearer"})
 
+        max_clips = int(os.environ.get("MAX_CLIPS", "10"))
+
         run_id = str(uuid.uuid4())
         base_dir = pathlib.Path("/tmp") / run_id
         base_dir.mkdir(parents=True, exist_ok=True)
@@ -429,7 +431,7 @@ class AiPodcastClipper:
         print(clip_moments)
 
         # 3. Process clips
-        for index, moment in enumerate(clip_moments[:5]):
+        for index, moment in enumerate(clip_moments[:max_clips]):
             if "start" in moment and "end" in moment:
                 print("Processing clip" + str(index) + " from " +
                       str(moment["start"]) + " to " + str(moment["end"]))

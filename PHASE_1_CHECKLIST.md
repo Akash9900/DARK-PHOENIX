@@ -86,18 +86,18 @@ grep -rn "filed\|minuntes\|credtis\|occured" \
   ```python
   max_clips = int(os.environ.get("MAX_CLIPS", "10"))
   ```
-- [ ] Line added
+- [x] Line added (now at `main.py:401`)
 
 ### Task 2.2 — Remove the hardcoded `[:5]` slice
 - **File:** `ai-podcast-clipper-backend/main.py:432`
 - **Current:** `for index, moment in enumerate(clip_moments[:5]):`
 - **Fix:** `for index, moment in enumerate(clip_moments[:max_clips]):`
-- [ ] Edit made
+- [x] Edit made (now at `main.py:434`)
 
 ### Task 2.3 — Add `MAX_CLIPS` to Modal secret / env
 - **File:** `ai-podcast-clipper-backend/setup_modal_secret.py` (verify it exists and update)
 - **Action:** Add `MAX_CLIPS=10` to the Modal secret dictionary so it's set in the GPU container
-- [ ] Secret updated
+- [x] Secret updated (added `"MAX_CLIPS": os.getenv("MAX_CLIPS", "10")` plus status print line)
 
 ### Task 2.4 — Update the Gemini prompt to request more clips
 - **File:** `ai-podcast-clipper-backend/main.py:370`
