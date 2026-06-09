@@ -190,7 +190,7 @@ grep -n "ContinuationToken\|IsTruncated\|do {" \
 - Inngest `retries: 1` means the function runs twice max; after both fail, the outer `catch` fires
 - With Inngest step memoization: on retry 2, already-completed steps (including `deduct-credits`) are skipped, so no double-deduction risk
 - The bug window: both tries fail **after** `deduct-credits` completes but **before** `set-status-processed` completes
-- [ ] Flow understood
+- [x] Flow understood
 
 ### Task 4.2 — Add outer tracking variable for credits deducted
 - **File:** `ai-podcast-clipper-frontend/src/inngest/functions.ts`
@@ -198,8 +198,12 @@ grep -n "ContinuationToken\|IsTruncated\|do {" \
 - **Update:** After the `"deduct-credits"` step body sets credits (line 103), add:
   `creditsDeducted = Math.min(credits, clipsFound);`
   (This requires `clipsFound` to be in scope — it is, via the destructured `{ clipsFound }` at line 70)
-- [ ] Variable declared
-- [ ] Variable assigned after deduct step
+- [x] Variable declared (`let userId = ""; let creditsDeducted = 0;` before `try`)
+- [x] Variable assigned after deduct step — implemented as `deduct-credits` step *returning* the
+      deduction amount (`return deduction`), then `creditsDeducted = deductedAmount` outside the
+      step. This is required for correctness under Inngest's step memoization: assigning inside
+      the step callback would not re-run on a replayed/memoized step, leaving `creditsDeducted`
+      at 0 even though credits were deducted on a prior attempt.
 
 ### Task 4.3 — Add refund logic to catch block
 - **File:** `ai-podcast-clipper-frontend/src/inngest/functions.ts:131-139`
@@ -235,16 +239,20 @@ grep -n "ContinuationToken\|IsTruncated\|do {" \
   let creditsDeducted = 0;
   // ... inside check-credits step, assign: userId = ...; credits = ...;
   ```
-- [ ] `userId` and `credits` moved to outer scope as `let`
-- [ ] `creditsDeducted` tracked after deduct step
-- [ ] Catch block refunds when `creditsDeducted > 0`
+- [x] `userId` moved to outer scope as `let` (assigned from `checkCreditsResult.userId`
+      after `step.run("check-credits", ...)` returns; `credits` did not need to move since
+      it's only read after that point, not in the catch block)
+- [x] `creditsDeducted` tracked after deduct step
+- [x] Catch block refunds when `creditsDeducted > 0` — both the status update and the refund
+      are wrapped in their own `step.run` calls (`set-status-failed`, `refund-credits`) so they
+      participate correctly in Inngest's retry/memoization model
 
 ### Task 4.4 — Verify TypeScript compiles
 ```bash
 cd ai-podcast-clipper-frontend && npx tsc --noEmit
 # Expect: no errors
 ```
-- [ ] `tsc --noEmit` exits 0
+- [x] `tsc --noEmit` exits 0
 
 ---
 

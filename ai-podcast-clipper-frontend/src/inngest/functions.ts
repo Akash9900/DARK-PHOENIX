@@ -19,8 +19,11 @@ export const processVideo = inngest.createFunction(
       userId: string;
     };
 
+    let userId = "";
+    let creditsDeducted = 0;
+
     try {
-      const { userId, credits, s3Key } = await step.run(
+      const checkCreditsResult = await step.run(
         "check-credits",
         async () => {
           const uploadedFile = await db.uploadedFile.findUniqueOrThrow({
@@ -45,6 +48,9 @@ export const processVideo = inngest.createFunction(
           };
         },
       );
+
+      const { credits, s3Key } = checkCreditsResult;
+      userId = checkCreditsResult.userId;
 
       if (credits > 0) {
         await step.run("set-status-processing", async () => {
@@ -93,18 +99,21 @@ export const processVideo = inngest.createFunction(
           },
         );
 
-        await step.run("deduct-credits", async () => {
+        const deductedAmount = await step.run("deduct-credits", async () => {
+          const deduction = Math.min(credits, clipsFound);
           await db.user.update({
             where: {
               id: userId,
             },
             data: {
               credits: {
-                decrement: Math.min(credits, clipsFound),
+                decrement: deduction,
               },
             },
           });
+          return deduction;
         });
+        creditsDeducted = deductedAmount;
 
         await step.run("set-status-processed", async () => {
           await db.uploadedFile.update({
@@ -129,14 +138,31 @@ export const processVideo = inngest.createFunction(
         });
       }
     } catch (error: unknown) {
-      await db.uploadedFile.update({
-        where: {
-          id: uploadedFileId,
-        },
-        data: {
-          status: "failed",
-        },
+      await step.run("set-status-failed", async () => {
+        await db.uploadedFile.update({
+          where: {
+            id: uploadedFileId,
+          },
+          data: {
+            status: "failed",
+          },
+        });
       });
+
+      if (creditsDeducted > 0) {
+        await step.run("refund-credits", async () => {
+          await db.user.update({
+            where: {
+              id: userId,
+            },
+            data: {
+              credits: {
+                increment: creditsDeducted,
+              },
+            },
+          });
+        });
+      }
     }
   },
 );
