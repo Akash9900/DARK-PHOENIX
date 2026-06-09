@@ -36,6 +36,7 @@ export async function generateUploadUrl(fileInfo: {
     Bucket: env.S3_BUCKET_NAME,
     Key: key,
     ContentType: fileInfo.contentType,
+    Tagging: "Environment=source",
   });
 
   const signedUrl = await getSignedUrl(s3Client, command, { expiresIn: 600 });

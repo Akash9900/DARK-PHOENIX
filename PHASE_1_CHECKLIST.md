@@ -306,61 +306,18 @@ grep -n 'accept=' ai-podcast-clipper-frontend/src/components/dashboard-client.ts
 
 ### Task 6.1 — Create infra directory and lifecycle JSON
 - **File:** `infra/s3-lifecycle.json` (new file at repo root)
-- **Content:**
+- **Tag scheme used:** `Environment=source` for originals (7-day expiry), `Environment=clip`
+  for generated clips (30-day expiry) — chosen over the earlier draft's `type=original`/`type=clip`
+  naming for consistency with common AWS resource-tagging conventions.
+- **Implemented content:**
   ```json
   {
     "Rules": [
       {
-        "ID": "expire-original-uploads",
+        "ID": "expire-source-videos-7d",
         "Status": "Enabled",
         "Filter": {
-          "Prefix": ""
-        },
-        "Expiration": {
-          "Days": 7
-        },
-        "NoncurrentVersionExpiration": {
-          "NoncurrentDays": 1
-        },
-        "Filter": {
-          "And": {
-            "Prefix": "",
-            "Tags": []
-          },
-          "ObjectSizeGreaterThan": 0
-        }
-      }
-    ]
-  }
-  ```
-  **Simpler approach — two rules by suffix pattern:**
-  ```json
-  {
-    "Rules": [
-      {
-        "ID": "expire-originals-after-7-days",
-        "Status": "Enabled",
-        "Filter": { "Prefix": "" },
-        "Expiration": { "Days": 7 },
-        "_comment": "Applies to all objects — tighten with object tagging if needed"
-      }
-    ]
-  }
-  ```
-  **Recommended approach (tag-based, precise):**
-  - Tag original uploads with `type=original` in `s3.ts` PutObject command
-  - Tag clip uploads with `type=clip` in `main.py` upload_file call
-  - Lifecycle rules filter by tag
-
-- **Recommended rule file:**
-  ```json
-  {
-    "Rules": [
-      {
-        "ID": "expire-original-uploads-7d",
-        "Status": "Enabled",
-        "Filter": {
-          "Tag": { "Key": "type", "Value": "original" }
+          "Tag": { "Key": "Environment", "Value": "source" }
         },
         "Expiration": { "Days": 7 }
       },
@@ -368,17 +325,17 @@ grep -n 'accept=' ai-podcast-clipper-frontend/src/components/dashboard-client.ts
         "ID": "expire-clips-30d",
         "Status": "Enabled",
         "Filter": {
-          "Tag": { "Key": "type", "Value": "clip" }
+          "Tag": { "Key": "Environment", "Value": "clip" }
         },
         "Expiration": { "Days": 30 }
       }
     ]
   }
   ```
-- [ ] `infra/s3-lifecycle.json` created with tag-based rules
+- [x] `infra/s3-lifecycle.json` created with tag-based rules
 
 ### Task 6.2 — Tag originals at upload time
-- **File:** `ai-podcast-clipper-frontend/src/actions/s3.ts:35-39`
+- **File:** `ai-podcast-clipper-frontend/src/actions/s3.ts:35-40`
 - **Current `PutObjectCommand`:**
   ```typescript
   const command = new PutObjectCommand({
@@ -387,33 +344,30 @@ grep -n 'accept=' ai-podcast-clipper-frontend/src/components/dashboard-client.ts
     ContentType: fileInfo.contentType,
   });
   ```
-- **Fix:**
+- **Fix (implemented):**
   ```typescript
   const command = new PutObjectCommand({
     Bucket: env.S3_BUCKET_NAME,
     Key: key,
     ContentType: fileInfo.contentType,
-    Tagging: "type=original",
+    Tagging: "Environment=source",
   });
   ```
-- [ ] `Tagging` field added
+- [x] `Tagging` field added
 
 ### Task 6.3 — Tag clips at upload time (backend)
-- **File:** `ai-podcast-clipper-backend/main.py:304-306`
+- **File:** `ai-podcast-clipper-backend/main.py:304-307`
 - **Current:**
   ```python
   s3_client.upload_file(subtitle_output_path, os.environ["S3_BUCKET_NAME"], output_s3_key)
   ```
-- **Fix:**
+- **Fix (implemented):**
   ```python
   s3_client.upload_file(
-      subtitle_output_path,
-      os.environ["S3_BUCKET_NAME"],
-      output_s3_key,
-      ExtraArgs={"Tagging": "type=clip"},
-  )
+      subtitle_output_path, os.environ["S3_BUCKET_NAME"], output_s3_key,
+      ExtraArgs={"Tagging": "Environment=clip"})
   ```
-- [ ] `ExtraArgs` with tagging added
+- [x] `ExtraArgs` with tagging added (`python3 -m py_compile main.py` → COMPILE OK)
 
 ### Task 6.4 — Apply lifecycle policy to AWS bucket
 - **Action:** Run AWS CLI command (requires AWS credentials with `s3:PutLifecycleConfiguration` permission):
@@ -426,8 +380,9 @@ grep -n 'accept=' ai-podcast-clipper-frontend/src/components/dashboard-client.ts
   ```bash
   aws s3api get-bucket-lifecycle-configuration --bucket <YOUR_BUCKET_NAME>
   ```
-- [ ] Policy applied to bucket
-- [ ] Verified with `get-bucket-lifecycle-configuration`
+- [ ] Policy applied to bucket — **NOT DONE: requires AWS credentials and bucket name,
+      which must be run manually by whoever has bucket access. The JSON file is ready to apply.**
+- [ ] Verified with `get-bucket-lifecycle-configuration` — pending the above
 
 ---
 

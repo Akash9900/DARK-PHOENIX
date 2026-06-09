@@ -1,0 +1,30 @@
+{
+  "Rules": [
+    {
+      "ID": "expire-source-videos-7d",
+      "Status": "Enabled",
+      "Filter": {
+        "Tag": {
+          "Key": "Environment",
+          "Value": "source"
+        }
+      },
+      "Expiration": {
+        "Days": 7
+      }
+    },
+    {
+      "ID": "expire-clips-30d",
+      "Status": "Enabled",
+      "Filter": {
+        "Tag": {
+          "Key": "Environment",
+          "Value": "clip"
+        }
+      },
+      "Expiration": {
+        "Days": 30
+      }
+    }
+  ]
+}
