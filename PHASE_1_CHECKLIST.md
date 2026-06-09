@@ -168,7 +168,7 @@ grep -n "max_clips\|MAX_CLIPS" ai-podcast-clipper-backend/main.py
     return keys;
   }
   ```
-- [ ] Function replaced
+- [x] Function replaced (`functions.ts:144-174`, verified `tsc --noEmit` passes)
 
 **Verification:**
 ```bash
@@ -176,7 +176,7 @@ grep -n "ContinuationToken\|IsTruncated\|do {" \
   ai-podcast-clipper-frontend/src/inngest/functions.ts
 # Expect: all three strings present
 ```
-- [ ] grep finds all three
+- [x] grep finds all three (lines 156, 161, 169-170)
 
 ---
 
