@@ -22,7 +22,8 @@ secret = modal.Secret.from_dict({
     "AWS_ACCESS_KEY_ID": os.getenv("AWS_ACCESS_KEY_ID"),
     "AWS_SECRET_ACCESS_KEY": os.getenv("AWS_SECRET_ACCESS_KEY"),
     "AWS_REGION": os.getenv("AWS_REGION"),
-    "S3_BUCKET_NAME": os.getenv("S3_BUCKET_NAME")
+    "S3_BUCKET_NAME": os.getenv("S3_BUCKET_NAME"),
+    "MAX_CLIPS": os.getenv("MAX_CLIPS", "10")
 })
 
 print("Secret object created successfully!")
@@ -34,6 +35,7 @@ print(f"  - AWS_ACCESS_KEY_ID: {'✓ Set' if os.getenv('AWS_ACCESS_KEY_ID') else
 print(f"  - AWS_SECRET_ACCESS_KEY: {'✓ Set' if os.getenv('AWS_SECRET_ACCESS_KEY') else '✗ Missing'}")
 print(f"  - AWS_REGION: {'✓ Set' if os.getenv('AWS_REGION') else '✗ Missing'}")
 print(f"  - S3_BUCKET_NAME: {'✓ Set' if os.getenv('S3_BUCKET_NAME') else '✗ Missing'}")
+print(f"  - MAX_CLIPS: {os.getenv('MAX_CLIPS', '10')}")
 print("")
 print("To create a PERSISTENT secret, go to https://modal.com/secrets")
 print("and create a secret named 'ai-podcast-clipper-secret' with these keys.")
