@@ -127,7 +127,7 @@ export default function BillingPage() {
             Buy Credits
           </h1>
           <p className="text-muted-foreground">
-            Purchase credits to generate more podcast clips. The more credtis
+            Purchase credits to generate more podcast clips. The more credits
             you buy, the better the value.
           </p>
         </div>

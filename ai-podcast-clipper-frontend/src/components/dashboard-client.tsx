@@ -81,7 +81,7 @@ export function DashboardClient({
       });
 
       if (!uploadResponse.ok)
-        throw new Error(`Upload filed with status: ${uploadResponse.status}`);
+        throw new Error(`Upload failed with status: ${uploadResponse.status}`);
 
       await processVideo(uploadedFileId);
 
@@ -270,7 +270,7 @@ export function DashboardClient({
               <CardTitle>My Clips</CardTitle>
               <CardDescription>
                 View and manage your generated clips here. Processing may take a
-                few minuntes.
+                few minutes.
               </CardDescription>
             </CardHeader>
             <CardContent>

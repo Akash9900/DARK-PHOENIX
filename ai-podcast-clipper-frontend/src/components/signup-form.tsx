@@ -42,7 +42,7 @@ export function SignupForm({
 
       const result = await signUp(data);
       if (!result.success) {
-        setError(result.error ?? "An error occured during signup");
+        setError(result.error ?? "An error occurred during signup");
         return;
       }
 
@@ -60,7 +60,7 @@ export function SignupForm({
         router.push("/dashboard");
       }
     } catch (error) {
-      setError("An unexpected error occured");
+      setError("An unexpected error occurred");
     } finally {
       setIsSubmitting(false);
     }
