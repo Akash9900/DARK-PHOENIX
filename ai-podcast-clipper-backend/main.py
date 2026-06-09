@@ -303,7 +303,8 @@ def process_clip(base_dir: str, original_video_path: str, s3_key: str, start_tim
 
     s3_client = boto3.client("s3")
     s3_client.upload_file(
-        subtitle_output_path, os.environ["S3_BUCKET_NAME"], output_s3_key)
+        subtitle_output_path, os.environ["S3_BUCKET_NAME"], output_s3_key,
+        ExtraArgs={"Tagging": "Environment=clip"})
 
 
 @app.cls(gpu="L40S", timeout=3600, retries=0, scaledown_window=20, secrets=[modal.Secret.from_name("ai-podcast-clipper-secret")], volumes={mount_path: volume})
