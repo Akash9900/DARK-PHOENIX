@@ -57,7 +57,7 @@ export function LoginForm({
         router.push("/dashboard");
       }
     } catch (error) {
-      setError("An unexpected error occured");
+      setError("An unexpected error occurred");
     } finally {
       setIsSubmitting(false);
     }
