@@ -275,13 +275,13 @@ cd ai-podcast-clipper-frontend && npx tsc --noEmit
     "video/webm": [".webm"],
   }}
   ```
-- [ ] Edit made
+- [x] Edit made (`dashboard-client.tsx:138-143`)
 
 ### Task 5.2 — Update UI hint text
 - **File:** `ai-podcast-clipper-frontend/src/components/dashboard-client.tsx:149`
 - **Current:** `or click to browse (MP4 up to 500MB)`
 - **Fix:** `or click to browse (MP4, MOV, MKV, WebM — up to 500MB)`
-- [ ] Edit made
+- [x] Edit made
 
 ### Task 5.3 — Verify S3 action handles non-mp4 extensions
 - **File:** `ai-podcast-clipper-frontend/src/actions/s3.ts:30`
@@ -289,14 +289,14 @@ cd ai-podcast-clipper-frontend && npx tsc --noEmit
 - **Review:** Extension is derived from filename — this already works for `.mov`, `.mkv`, `.webm`
 - **Key format becomes:** `{uuid}/original.mov`, `{uuid}/original.mkv`, etc.
 - **Backend concern:** `main.py` downloads to `input.mp4` regardless of format — ffmpeg handles it
-- [ ] Confirmed no backend change needed (ffmpeg detects format from content, not extension)
+- [x] Confirmed no backend change needed (ffmpeg detects format from content, not extension)
 
 **Verification:**
 ```bash
 grep -n 'accept=' ai-podcast-clipper-frontend/src/components/dashboard-client.tsx
 # Expect: 4 MIME types listed
 ```
-- [ ] grep shows all 4 types
+- [x] grep shows all 4 types (mp4, quicktime, x-matroska, webm)
 
 ---
 

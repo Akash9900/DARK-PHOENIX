@@ -135,7 +135,12 @@ export function DashboardClient({
             <CardContent>
               <Dropzone
                 onDrop={handleDrop}
-                accept={{ "video/mp4": [".mp4"] }}
+                accept={{
+                  "video/mp4": [".mp4"],
+                  "video/quicktime": [".mov"],
+                  "video/x-matroska": [".mkv"],
+                  "video/webm": [".webm"],
+                }}
                 maxSize={500 * 1024 * 1024}
                 disabled={uploading}
                 maxFiles={1}
@@ -146,7 +151,7 @@ export function DashboardClient({
                       <UploadCloud className="text-muted-foreground h-12 w-12" />
                       <p className="font-medium">Drag and drop your file</p>
                       <p className="text-muted-foreground text-sm">
-                        or click to browse (MP4 up to 500MB)
+                        or click to browse (MP4, MOV, MKV, WebM — up to 500MB)
                       </p>
                       <Button
                         className="cursor-pointer"
