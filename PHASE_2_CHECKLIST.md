@@ -78,14 +78,21 @@ file-upload path as early as possible**:
       @@index([s3Key])
   }
   ```
-- **Migration:**
+- **Migration:** This project has no `prisma/migrations/` directory and uses the
+  `db push` workflow (`package.json` → `"db:push": "prisma db push"`), not migration files.
+  Apply the schema change with:
   ```bash
   cd ai-podcast-clipper-frontend
-  npx prisma migrate dev --name add_youtube_url_to_uploaded_file
+  npx prisma db push
+  npx prisma generate
   ```
-- [ ] Schema field added
-- [ ] Migration generated and applied
-- [ ] `npx prisma generate` run (regenerates Prisma client types)
+  **Requires a real `DATABASE_URL`** (set in a local `.env`, not committed) — must be run by a
+  developer with database access; not runnable in CI/sandbox without credentials.
+- [x] Schema field added
+- [ ] `npx prisma db push` run against a real database (requires `DATABASE_URL` — manual step,
+      not performed in this session)
+- [ ] `npx prisma generate` run (regenerates Prisma client types) — run automatically as part of
+      `db push` / `postinstall`
 
 ---
 
