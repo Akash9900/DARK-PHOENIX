@@ -158,21 +158,70 @@ file-upload path as early as possible**:
   requested if `merge_output_format` differs from the source extension. Test with
   `outtmpl` set to `str(video_path.with_suffix(""))` + `.%(ext)s` and verify the final
   file lands at `video_path` (rename if needed after download).
-- [ ] Function implemented
-- [ ] Output path handling verified against actual `yt-dlp` behavior (test manually first)
+
+**Implemented version** (deviates slightly from the draft above — no `max_duration_seconds`
+pre-check was added; see "Open Items" below):
+```python
+class YouTubeDownloadError(Exception):
+    pass
+
+
+def download_from_youtube(youtube_url: str, output_path: str) -> bool:
+    """Download a YouTube video as MP4 to output_path using yt-dlp.
+
+    Raises YouTubeDownloadError for invalid URLs, unavailable/region-blocked
+    videos, and other download failures (including timeouts).
+    Returns True on success.
+    """
+    import yt_dlp
+
+    ydl_opts = {
+        "format": "bestvideo[ext=mp4][height<=1080]+bestaudio[ext=m4a]/best[ext=mp4]/best",
+        "outtmpl": output_path,
+        "merge_output_format": "mp4",
+        "quiet": True,
+        "no_warnings": True,
+        "noplaylist": True,
+        "socket_timeout": 30,
+    }
+
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.download([youtube_url])
+    except yt_dlp.utils.DownloadError as e:
+        print(f"yt-dlp download failed for {youtube_url}: {e}")
+        raise YouTubeDownloadError(f"Failed to download YouTube video: {e}") from e
+
+    if not os.path.exists(output_path):
+        print(f"yt-dlp reported success but no file found at {output_path}")
+        raise YouTubeDownloadError(
+            f"Download completed but output file not found at {output_path}")
+
+    return True
+```
+Placed in `main.py` after `process_clip()` (was line ~308) and before the `@app.cls`
+`AiPodcastClipper` class definition.
+
+- [x] Function implemented
+- [ ] Output path handling verified against actual `yt-dlp` behavior — **not yet tested with a
+      live download** (no network/yt-dlp execution in this session); `python3 -m py_compile`
+      passes but this is syntax-only verification
 
 ---
 
 ### Task 4 — Backend: branch `process_video` endpoint on `youtube_url` (≈1.5 hours)
 
 - **File:** `ai-podcast-clipper-backend/main.py:25-26` — `ProcessVideoRequest` model
-- **Change:**
+- **Implemented version** (deviates from the draft: adds an explicit `source` discriminator
+  field rather than relying solely on `youtube_url` truthiness — requested in the Task 3/4
+  execution instructions):
   ```python
   class ProcessVideoRequest(BaseModel):
       s3_key: str
+      source: str = "file"
       youtube_url: str | None = None
   ```
-- [ ] Model updated
+- [x] Model updated (with `source` field added)
 
 - **File:** `ai-podcast-clipper-backend/main.py:393-408` — `process_video` endpoint
 - **Current:**
@@ -229,10 +278,35 @@ file-upload path as early as possible**:
           # Download video file from S3 (existing path)
           s3_client.download_file(os.environ["S3_BUCKET_NAME"], s3_key, str(video_path))
   ```
-- [ ] Endpoint branches correctly on `youtube_url`
-- [ ] YouTube-sourced video uploaded to S3 with `Environment=source` tag (consistent with
+
+**Implemented version** (branches on `request.source == "youtube"` instead of
+`youtube_url` truthiness, and adds a 400 error if `youtube_url` is missing for that source):
+```python
+        video_path = base_dir / "input.mp4"
+        s3_client = boto3.client("s3")
+
+        if request.source == "youtube":
+            if not request.youtube_url:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                                    detail="youtube_url is required when source is 'youtube'")
+
+            print(f"Downloading video from YouTube: {request.youtube_url}")
+            try:
+                download_from_youtube(request.youtube_url, str(video_path))
+            except YouTubeDownloadError as e:
+                raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                                    detail=str(e))
+
+            s3_client.upload_file(str(video_path), os.environ["S3_BUCKET_NAME"], s3_key,
+                                   ExtraArgs={"Tagging": "Environment=source"})
+        else:
+            s3_client.download_file(os.environ["S3_BUCKET_NAME"], s3_key, str(video_path))
+```
+
+- [x] Endpoint branches correctly on `request.source` (with `youtube_url` validation)
+- [x] YouTube-sourced video uploaded to S3 with `Environment=source` tag (consistent with
       Phase 1 Chunk 6 lifecycle policy)
-- [ ] `python3 -m py_compile main.py` passes
+- [x] `python3 -m py_compile main.py` passes
 
 ---
 
