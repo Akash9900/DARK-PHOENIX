@@ -61,3 +61,7 @@ print(f"  - GOOGLE_DRIVE_FOLDER_ID: {'✓ Set' if os.getenv('GOOGLE_DRIVE_FOLDER
 print("")
 print("To create a PERSISTENT secret, go to https://modal.com/secrets")
 print("and create a secret named 'ai-podcast-clipper-secret' with these keys.")
+
+# Note: INNGEST_SIGNING_KEY and INNGEST_EVENT_KEY are NOT added to the Modal secret.
+# They must be set in Vercel environment variables directly (the Inngest SDK reads
+# them from process.env).
