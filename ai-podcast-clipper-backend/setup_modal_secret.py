@@ -32,7 +32,9 @@ secret = modal.Secret.from_dict({
     "WATERMARK_IMAGE_ENABLED": os.getenv("WATERMARK_IMAGE_ENABLED", "false"),
     "WATERMARK_IMAGE_PATH": os.getenv("WATERMARK_IMAGE_PATH", "assets/watermark.png"),
     "WATERMARK_IMAGE_SCALE": os.getenv("WATERMARK_IMAGE_SCALE", "0.1"),
-    "GOOGLE_DRIVE_CREDENTIALS_JSON": os.getenv("GOOGLE_DRIVE_CREDENTIALS_JSON")
+    "GOOGLE_DRIVE_CREDENTIALS_JSON": os.getenv("GOOGLE_DRIVE_CREDENTIALS_JSON"),
+    "GOOGLE_DRIVE_ENABLED": os.getenv("GOOGLE_DRIVE_ENABLED", "false"),
+    "GOOGLE_DRIVE_FOLDER_ID": os.getenv("GOOGLE_DRIVE_FOLDER_ID")
 })
 
 print("Secret object created successfully!")
@@ -54,6 +56,8 @@ print(f"  - WATERMARK_IMAGE_ENABLED: {os.getenv('WATERMARK_IMAGE_ENABLED', 'fals
 print(f"  - WATERMARK_IMAGE_PATH: {os.getenv('WATERMARK_IMAGE_PATH', 'assets/watermark.png')}")
 print(f"  - WATERMARK_IMAGE_SCALE: {os.getenv('WATERMARK_IMAGE_SCALE', '0.1')}")
 print(f"  - GOOGLE_DRIVE_CREDENTIALS_JSON: {'✓ Set' if os.getenv('GOOGLE_DRIVE_CREDENTIALS_JSON') else '✗ Missing'}")
+print(f"  - GOOGLE_DRIVE_ENABLED: {os.getenv('GOOGLE_DRIVE_ENABLED', 'false')}")
+print(f"  - GOOGLE_DRIVE_FOLDER_ID: {'✓ Set' if os.getenv('GOOGLE_DRIVE_FOLDER_ID') else '✗ Missing'}")
 print("")
 print("To create a PERSISTENT secret, go to https://modal.com/secrets")
 print("and create a secret named 'ai-podcast-clipper-secret' with these keys.")
