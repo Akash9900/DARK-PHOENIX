@@ -24,6 +24,8 @@ import whisperx
 
 class ProcessVideoRequest(BaseModel):
     s3_key: str
+    source: str = "file"
+    youtube_url: str | None = None
 
 
 image = (modal.Image.from_registry(
@@ -307,6 +309,44 @@ def process_clip(base_dir: str, original_video_path: str, s3_key: str, start_tim
         ExtraArgs={"Tagging": "Environment=clip"})
 
 
+class YouTubeDownloadError(Exception):
+    pass
+
+
+def download_from_youtube(youtube_url: str, output_path: str) -> bool:
+    """Download a YouTube video as MP4 to output_path using yt-dlp.
+
+    Raises YouTubeDownloadError for invalid URLs, unavailable/region-blocked
+    videos, and other download failures (including timeouts).
+    Returns True on success.
+    """
+    import yt_dlp
+
+    ydl_opts = {
+        "format": "bestvideo[ext=mp4][height<=1080]+bestaudio[ext=m4a]/best[ext=mp4]/best",
+        "outtmpl": output_path,
+        "merge_output_format": "mp4",
+        "quiet": True,
+        "no_warnings": True,
+        "noplaylist": True,
+        "socket_timeout": 30,
+    }
+
+    try:
+        with yt_dlp.YoutubeDL(ydl_opts) as ydl:
+            ydl.download([youtube_url])
+    except yt_dlp.utils.DownloadError as e:
+        print(f"yt-dlp download failed for {youtube_url}: {e}")
+        raise YouTubeDownloadError(f"Failed to download YouTube video: {e}") from e
+
+    if not os.path.exists(output_path):
+        print(f"yt-dlp reported success but no file found at {output_path}")
+        raise YouTubeDownloadError(
+            f"Download completed but output file not found at {output_path}")
+
+    return True
+
+
 @app.cls(gpu="L40S", timeout=3600, retries=0, scaledown_window=20, secrets=[modal.Secret.from_name("ai-podcast-clipper-secret")], volumes={mount_path: volume})
 class AiPodcastClipper:
     @modal.enter()
@@ -405,10 +445,28 @@ class AiPodcastClipper:
         base_dir = pathlib.Path("/tmp") / run_id
         base_dir.mkdir(parents=True, exist_ok=True)
 
-        # Download video file
         video_path = base_dir / "input.mp4"
         s3_client = boto3.client("s3")
-        s3_client.download_file(os.environ["S3_BUCKET_NAME"], s3_key, str(video_path))
+
+        if request.source == "youtube":
+            if not request.youtube_url:
+                raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST,
+                                    detail="youtube_url is required when source is 'youtube'")
+
+            print(f"Downloading video from YouTube: {request.youtube_url}")
+            try:
+                download_from_youtube(request.youtube_url, str(video_path))
+            except YouTubeDownloadError as e:
+                raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                                    detail=str(e))
+
+            # Upload the downloaded video to S3 at the pre-generated key so the rest of
+            # the pipeline (clip uploads, etc.) behaves identically to the file-upload path
+            s3_client.upload_file(str(video_path), os.environ["S3_BUCKET_NAME"], s3_key,
+                                   ExtraArgs={"Tagging": "Environment=source"})
+        else:
+            # Download video file from S3 (existing path)
+            s3_client.download_file(os.environ["S3_BUCKET_NAME"], s3_key, str(video_path))
 
         # 1. Transcription
         transcript_segments_json = self.transcribe_video(base_dir, video_path)
