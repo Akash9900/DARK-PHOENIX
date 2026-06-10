@@ -17,6 +17,8 @@ import { useState } from "react";
 import { generateUploadUrl } from "~/actions/s3";
 import { toast } from "sonner";
 import { processVideo } from "~/actions/generation";
+import { processYoutubeVideo } from "~/actions/youtube";
+import { Input } from "./ui/input";
 import {
   Table,
   TableBody,
@@ -46,6 +48,9 @@ export function DashboardClient({
   const [files, setFiles] = useState<File[]>([]);
   const [uploading, setUploading] = useState(false);
   const [refreshing, setRefreshing] = useState(false);
+  const [activeTab, setActiveTab] = useState("upload");
+  const [youtubeUrl, setYoutubeUrl] = useState("");
+  const [submittingYoutube, setSubmittingYoutube] = useState(false);
   const router = useRouter();
 
   const handleRefresh = async () => {
@@ -102,6 +107,45 @@ export function DashboardClient({
     }
   };
 
+  const YOUTUBE_URL_REGEX =
+    /^(https?:\/\/)?(www\.)?(youtube\.com\/watch\?v=|youtu\.be\/)[\w-]{11}/;
+
+  const handleYoutubeSubmit = async () => {
+    if (!YOUTUBE_URL_REGEX.test(youtubeUrl)) {
+      toast.error("Invalid YouTube URL", {
+        description: "Please enter a valid youtube.com or youtu.be link.",
+      });
+      return;
+    }
+
+    setSubmittingYoutube(true);
+
+    try {
+      const result = await processYoutubeVideo(youtubeUrl);
+
+      if (!result.success) {
+        toast.error("Could not process video", {
+          description: result.error ?? "Please check the URL and try again.",
+        });
+        return;
+      }
+
+      setYoutubeUrl("");
+
+      toast.success("Video scheduled for processing", {
+        description:
+          "Your video has been scheduled for processing. Check the status below.",
+        duration: 5000,
+      });
+    } catch (error) {
+      toast.error("Failed to process YouTube video", {
+        description: "Something went wrong. Please try again.",
+      });
+    } finally {
+      setSubmittingYoutube(false);
+    }
+  };
+
   return (
     <div className="mx-auto flex max-w-5xl flex-col space-y-6 px-4 py-8">
       <div className="flex items-center justify-between">
@@ -118,9 +162,10 @@ export function DashboardClient({
         </Link>
       </div>
 
-      <Tabs defaultValue="upload">
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
         <TabsList>
-          <TabsTrigger value="upload">Upload</TabsTrigger>
+          <TabsTrigger value="upload">Upload File</TabsTrigger>
+          <TabsTrigger value="youtube">YouTube URL</TabsTrigger>
           <TabsTrigger value="my-clips">My Clips</TabsTrigger>
         </TabsList>
 
@@ -265,6 +310,44 @@ export function DashboardClient({
                   </div>
                 </div>
               )}
+            </CardContent>
+          </Card>
+        </TabsContent>
+
+        <TabsContent value="youtube">
+          <Card>
+            <CardHeader>
+              <CardTitle>Process YouTube Video</CardTitle>
+              <CardDescription>
+                Paste a YouTube URL to generate clips
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="flex gap-2">
+                <Input
+                  type="url"
+                  placeholder="https://www.youtube.com/watch?v=..."
+                  value={youtubeUrl}
+                  onChange={(e) => setYoutubeUrl(e.target.value)}
+                  disabled={submittingYoutube}
+                />
+                <Button
+                  onClick={handleYoutubeSubmit}
+                  disabled={submittingYoutube || !youtubeUrl}
+                >
+                  {submittingYoutube ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    "Process Video"
+                  )}
+                </Button>
+              </div>
+              <p className="text-muted-foreground mt-2 text-sm">
+                Switch to the &quot;Upload File&quot; tab to view queue status.
+              </p>
             </CardContent>
           </Card>
         </TabsContent>

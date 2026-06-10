@@ -462,12 +462,24 @@ Placed in `main.py` after `process_clip()` (was line ~308) and before the `@app.
     }
   };
   ```
-- [ ] Tab trigger added
-- [ ] `TabsContent` block added
-- [ ] Imports added (`Input`, `processYoutubeVideo`)
-- [ ] State + handler added
-- [ ] Verify `Input` component exists at `src/components/ui/input.tsx` (shadcn/ui primitive —
-      confirm before importing; if missing, run `npx shadcn add input`)
+**Implemented version** (deviates slightly from the draft above):
+- `Tabs` is now **controlled** via `activeTab`/`setActiveTab` state (`value={activeTab}
+  onValueChange={setActiveTab}`) instead of `defaultValue="upload"`.
+- `handleYoutubeSubmit` validates the URL client-side with `YOUTUBE_URL_REGEX` *before* calling
+  `processYoutubeVideo()` (in addition to the server-side check in `actions/youtube.ts`), so
+  invalid URLs never trigger a server action call.
+- The "YouTube URL" `TabsContent` does **not** duplicate the queue-status table (already shown
+  on the "Upload File" tab) — instead shows a hint to switch tabs to view status, avoiding
+  ~60 lines of duplicated table JSX.
+
+- [x] Tab trigger added (`"Upload File"`, `"YouTube URL"`, `"My Clips"`)
+- [x] `TabsContent` block added
+- [x] Imports added (`Input` from `./ui/input`, `processYoutubeVideo` from `~/actions/youtube`)
+- [x] State + handler added (`activeTab`, `youtubeUrl`, `submittingYoutube`,
+      `handleYoutubeSubmit`)
+- [x] Verified `Input` component exists at `src/components/ui/input.tsx` (already present, no
+      `npx shadcn add input` needed)
+- [x] `npx tsc --noEmit` passes
 
 ---
 
