@@ -40,6 +40,8 @@ export async function processYoutubeVideo(youtubeUrl: string): Promise<{
     data: {
       uploadedFileId: uploadedFile.id,
       userId: session.user.id,
+      source: "youtube",
+      youtubeUrl,
     },
   });
 
