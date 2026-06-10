@@ -107,8 +107,9 @@ file-upload path as early as possible**:
 - **File:** `ai-podcast-clipper-backend/main.py:29-38` — Modal image definition
 - **Change:** No explicit pip_install needed — `pip_install_from_requirements("requirements.txt")`
   (`main.py:32`) already picks up `requirements.txt` changes automatically
-- [ ] `yt-dlp` added to `requirements.txt`
-- [ ] Confirmed Modal image rebuild picks it up (no separate `pip_install` call needed)
+- [x] `yt-dlp` added to `requirements.txt` (no `pytubefix` was present, confirmed via grep)
+- [ ] Confirmed Modal image rebuild picks it up (no separate `pip_install` call needed) —
+      verified at deploy time, not in this session
 
 ---
 
@@ -292,10 +293,11 @@ file-upload path as early as possible**:
     return { success: true, uploadedFileId: uploadedFile.id };
   }
   ```
-- [ ] File created
-- [ ] Regex validates `youtube.com/watch?v=` and `youtu.be/` formats
-- [ ] `uploaded: true` set immediately (skips the file-upload step that normally sets this
+- [x] File created (implemented as part of Task 2 — see commit history)
+- [x] Regex validates `youtube.com/watch?v=` and `youtu.be/` formats
+- [x] `uploaded: true` set immediately (skips the file-upload step that normally sets this
       via `processVideo()` in `generation.ts:30-37`)
+- [x] `npx tsc --noEmit` passes (after `npx prisma generate` picked up Task 1's `youtubeUrl` field)
 
 ---
 
