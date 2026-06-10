@@ -471,40 +471,67 @@ Placed in `main.py` after `process_clip()` (was line ~308) and before the `@app.
 
 ---
 
-### Task 7 — Inngest: pass `youtubeUrl` through to Modal (≈1 hour)
+### Task 7 — Inngest: pass `source`/`youtube_url` through to Modal (≈1 hour)
 
-- **File:** `ai-podcast-clipper-frontend/src/inngest/functions.ts:26-50` — `check-credits` step
-- **Current return shape:** `{ userId, credits, s3Key }`
-- **Fix:** Add `youtubeUrl` to the select and return:
+**Implemented approach (deviates from the draft below):** rather than re-querying the DB for
+`youtubeUrl` inside `check-credits`, `source` and `youtubeUrl` are passed straight through the
+Inngest **event payload** (set by `processYoutubeVideo()` in `actions/youtube.ts` at send-time)
+and destructured at the top of the function. This avoids an extra `select` field and keeps
+`check-credits`'s return shape unchanged.
+
+- **File:** `ai-podcast-clipper-frontend/src/actions/youtube.ts` — `inngest.send()` call
+- **Before:**
   ```typescript
-  const uploadedFile = await db.uploadedFile.findUniqueOrThrow({
-    where: { id: uploadedFileId },
-    select: {
-      user: { select: { id: true, credits: true } },
-      s3Key: true,
-      youtubeUrl: true,
+  await inngest.send({
+    name: "process-video-events",
+    data: {
+      uploadedFileId: uploadedFile.id,
+      userId: session.user.id,
     },
   });
+  ```
+- **After:**
+  ```typescript
+  await inngest.send({
+    name: "process-video-events",
+    data: {
+      uploadedFileId: uploadedFile.id,
+      userId: session.user.id,
+      source: "youtube",
+      youtubeUrl,
+    },
+  });
+  ```
+- [x] `source`/`youtubeUrl` added to Inngest event payload
 
-  return {
-    userId: uploadedFile.user.id,
-    credits: uploadedFile.user.credits,
-    s3Key: uploadedFile.s3Key,
-    youtubeUrl: uploadedFile.youtubeUrl,
+- **File:** `ai-podcast-clipper-frontend/src/inngest/functions.ts:17-20` — event data destructure
+- **Before:**
+  ```typescript
+  const { uploadedFileId } = event.data as {
+    uploadedFileId: string;
+    userId: string;
   };
   ```
-- [ ] `youtubeUrl` added to `check-credits` step return
-
-- **File:** `ai-podcast-clipper-frontend/src/inngest/functions.ts:52-53`
-- **Fix:** Destructure the new field:
+- **After:**
   ```typescript
-  const { credits, s3Key, youtubeUrl } = checkCreditsResult;
-  userId = checkCreditsResult.userId;
+  const {
+    uploadedFileId,
+    source = "file",
+    youtubeUrl,
+  } = event.data as {
+    uploadedFileId: string;
+    userId: string;
+    source?: string;
+    youtubeUrl?: string;
+  };
   ```
-- [ ] Destructured
+- [x] `source` (defaults to `"file"`) and `youtubeUrl` destructured from `event.data`. The
+      existing file-upload path (`processVideo()` in `generation.ts`) doesn't set these fields,
+      so `source` defaults to `"file"` and `youtubeUrl` is `undefined` for that path —
+      backward compatible.
 
-- **File:** `ai-podcast-clipper-frontend/src/inngest/functions.ts:67-74` — `step.fetch`
-- **Current:**
+- **File:** `ai-podcast-clipper-frontend/src/inngest/functions.ts` — `step.fetch`
+- **Before:**
   ```typescript
   await step.fetch(env.PROCESS_VIDEO_ENDPOINT, {
     method: "POST",
@@ -515,19 +542,24 @@ Placed in `main.py` after `process_clip()` (was line ~308) and before the `@app.
     },
   });
   ```
-- **Fix:**
+- **After:**
   ```typescript
   await step.fetch(env.PROCESS_VIDEO_ENDPOINT, {
     method: "POST",
-    body: JSON.stringify({ s3_key: s3Key, youtube_url: youtubeUrl }),
+    body: JSON.stringify({
+      s3_key: s3Key,
+      source,
+      youtube_url: youtubeUrl,
+    }),
     headers: {
       "Content-Type": "application/json",
       Authorization: `Bearer ${env.PROCESS_VIDEO_ENDPOINT_AUTH}`,
     },
   });
   ```
-- [ ] `youtube_url` included in Modal request body
-- [ ] `tsc --noEmit` passes
+- [x] `source` and `youtube_url` included in Modal request body (matches `ProcessVideoRequest`
+      field names from Tasks 3/4: `s3_key`, `source`, `youtube_url`)
+- [x] `npx tsc --noEmit` passes
 
 ---
 
