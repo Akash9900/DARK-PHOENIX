@@ -458,20 +458,30 @@ Placed in `main.py` after `create_subtitles_with_ffmpeg()` (was line 238), befor
 - [x] `WATERMARK_TEXT_POSITIONS` and `WATERMARK_IMAGE_POSITIONS` dicts defined (renamed from
       the draft's single `WATERMARK_POSITIONS` to have separate text/image position-string
       formats, since `drawtext` and `overlay` use different coordinate variable names)
-- [ ] Graceful fallback on missing asset / ffmpeg failure — **NOT implemented** (raises
-      `WatermarkError` instead, per item 3 above — open decision for Task 5)
+- [x] Graceful fallback on missing asset / ffmpeg failure — `apply_watermark()` itself still
+      raises `WatermarkError` (per item 3 above), but Task 5 added a try/except at the
+      `process_clip()` call site that falls back to the un-watermarked clip, satisfying
+      `PROJECT_PLAN.md` §3.5
 - [x] `python3 -m py_compile main.py` passes
 
 ---
 
 ### Task 5 — Wire `apply_watermark()` into `process_clip()` (≈45 min)
 
-- **File:** `ai-podcast-clipper-backend/main.py:241-309` — `process_clip()`
-- **Add new path variable** near the other `clip_dir`-relative paths (around line 252):
-  ```python
-  subtitle_output_path = clip_dir / "pyavi" / "video_with_subtitles.mp4"
-  watermarked_output_path = clip_dir / "pyavi" / "video_final.mp4"
-  ```
+- **File:** `ai-podcast-clipper-backend/main.py` — `process_clip()`
+
+**Resolves the Task 4 open decision** (item 3 above): graceful fallback was chosen — `process_clip()`
+catches `WatermarkError` and falls back to the un-watermarked `subtitle_output_path`, preserving the
+`PROJECT_PLAN.md` §3.5 graceful-degradation guarantee. `apply_watermark()` itself still raises
+`WatermarkError` on failure (per Task 4); the fallback now lives at this call site instead.
+
+**Deviations from the draft above:**
+- Variable named `watermarked_path` (not `watermarked_output_path`), set to
+  `clip_dir / "pyavi" / "video_watermarked.mp4"` (not `video_final.mp4`), added next to
+  `subtitle_output_path`.
+- Result variable named `clip_path` (not `final_output_path`), assigned via try/except rather than
+  `apply_watermark()`'s return value (which is just `bool`, not a path).
+
 - **Before:**
   ```python
   create_subtitles_with_ffmpeg(transcript_segments, start_time,
@@ -487,17 +497,23 @@ Placed in `main.py` after `create_subtitles_with_ffmpeg()` (was line 238), befor
   create_subtitles_with_ffmpeg(transcript_segments, start_time,
                                end_time, vertical_mp4_path, subtitle_output_path, max_words=5)
 
-  final_output_path = apply_watermark(str(subtitle_output_path), str(watermarked_output_path))
+  try:
+      apply_watermark(str(subtitle_output_path), str(watermarked_path))
+      clip_path = watermarked_path
+  except WatermarkError as e:
+      print(f"WARNING: watermark failed, uploading clip without watermark: {e}")
+      clip_path = subtitle_output_path
 
   s3_client = boto3.client("s3")
   s3_client.upload_file(
-      final_output_path, os.environ["S3_BUCKET_NAME"], output_s3_key,
+      clip_path, os.environ["S3_BUCKET_NAME"], output_s3_key,
       ExtraArgs={"Tagging": "Environment=clip"})
   ```
-- [ ] `watermarked_output_path` variable added
-- [ ] `apply_watermark()` called between subtitle burn and S3 upload
-- [ ] S3 upload now uploads `final_output_path` instead of `subtitle_output_path`
-- [ ] `python3 -m py_compile main.py` passes
+- [x] `watermarked_path` variable added (next to `subtitle_output_path`)
+- [x] `apply_watermark()` called between subtitle burn and S3 upload, wrapped in
+      try/except `WatermarkError` with fallback to `subtitle_output_path`
+- [x] S3 upload now uploads `clip_path` instead of `subtitle_output_path`
+- [x] `python3 -m py_compile main.py` passes
 
 ---
 

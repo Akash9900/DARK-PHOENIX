@@ -370,6 +370,7 @@ def process_clip(base_dir: str, original_video_path: str, s3_key: str, start_tim
     clip_segment_path = clip_dir / f"{clip_name}_segment.mp4"
     vertical_mp4_path = clip_dir / "pyavi" / "video_out_vertical.mp4"
     subtitle_output_path = clip_dir / "pyavi" / "video_with_subtitles.mp4"
+    watermarked_path = clip_dir / "pyavi" / "video_watermarked.mp4"
 
     (clip_dir / "pywork").mkdir(exist_ok=True)
     pyframes_path = clip_dir / "pyframes"
@@ -423,9 +424,16 @@ def process_clip(base_dir: str, original_video_path: str, s3_key: str, start_tim
     create_subtitles_with_ffmpeg(transcript_segments, start_time,
                                  end_time, vertical_mp4_path, subtitle_output_path, max_words=5)
 
+    try:
+        apply_watermark(str(subtitle_output_path), str(watermarked_path))
+        clip_path = watermarked_path
+    except WatermarkError as e:
+        print(f"WARNING: watermark failed, uploading clip without watermark: {e}")
+        clip_path = subtitle_output_path
+
     s3_client = boto3.client("s3")
     s3_client.upload_file(
-        subtitle_output_path, os.environ["S3_BUCKET_NAME"], output_s3_key,
+        clip_path, os.environ["S3_BUCKET_NAME"], output_s3_key,
         ExtraArgs={"Tagging": "Environment=clip"})
 
 
