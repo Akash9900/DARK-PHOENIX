@@ -31,7 +31,8 @@ secret = modal.Secret.from_dict({
     "WATERMARK_FONT_SIZE": os.getenv("WATERMARK_FONT_SIZE", "30"),
     "WATERMARK_IMAGE_ENABLED": os.getenv("WATERMARK_IMAGE_ENABLED", "false"),
     "WATERMARK_IMAGE_PATH": os.getenv("WATERMARK_IMAGE_PATH", "assets/watermark.png"),
-    "WATERMARK_IMAGE_SCALE": os.getenv("WATERMARK_IMAGE_SCALE", "0.1")
+    "WATERMARK_IMAGE_SCALE": os.getenv("WATERMARK_IMAGE_SCALE", "0.1"),
+    "GOOGLE_DRIVE_CREDENTIALS_JSON": os.getenv("GOOGLE_DRIVE_CREDENTIALS_JSON")
 })
 
 print("Secret object created successfully!")
@@ -52,6 +53,7 @@ print(f"  - WATERMARK_FONT_SIZE: {os.getenv('WATERMARK_FONT_SIZE', '30')}")
 print(f"  - WATERMARK_IMAGE_ENABLED: {os.getenv('WATERMARK_IMAGE_ENABLED', 'false')}")
 print(f"  - WATERMARK_IMAGE_PATH: {os.getenv('WATERMARK_IMAGE_PATH', 'assets/watermark.png')}")
 print(f"  - WATERMARK_IMAGE_SCALE: {os.getenv('WATERMARK_IMAGE_SCALE', '0.1')}")
+print(f"  - GOOGLE_DRIVE_CREDENTIALS_JSON: {'✓ Set' if os.getenv('GOOGLE_DRIVE_CREDENTIALS_JSON') else '✗ Missing'}")
 print("")
 print("To create a PERSISTENT secret, go to https://modal.com/secrets")
 print("and create a secret named 'ai-podcast-clipper-secret' with these keys.")

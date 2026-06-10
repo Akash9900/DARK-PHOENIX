@@ -21,3 +21,7 @@ fastapi[standard]
 whisperx @ git+https://github.com/m-bain/whisperx.git@v3.2.0
 pyannote-audio==3.1.1
 yt-dlp
+google-auth
+google-auth-httplib2
+google-auth-oauthlib
+google-api-python-client
