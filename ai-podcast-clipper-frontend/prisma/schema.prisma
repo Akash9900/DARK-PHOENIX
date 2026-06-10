@@ -75,6 +75,7 @@ model UploadedFile {
     id String @id @default(cuid())
     s3Key String
     displayName String?
+    youtubeUrl String?
     uploaded Boolean @default(false)
     status String @default("queued") // processing, processed, no credits
     createdAt DateTime @default(now())
