@@ -305,11 +305,162 @@ onward):**
 
       return output_path
   ```
-- [ ] `apply_watermark()` function implemented
-- [ ] `WATERMARK_POSITIONS` and `WATERMARK_TEXT_POSITIONS` dicts defined
-- [ ] Graceful fallback on missing asset, empty text, and ffmpeg failure (copies input
-      unchanged — per `PROJECT_PLAN.md` §3.5)
-- [ ] `python3 -m py_compile main.py` passes
+**Implemented version** (significant deviations from the draft above — see notes after):
+
+```python
+class WatermarkError(Exception):
+    pass
+
+
+# Output videos are fixed at 1080x1920 (vertical), matching PlayResX/PlayResY
+# in create_subtitles_with_ffmpeg(). Used to convert WATERMARK_IMAGE_SCALE
+# (a fraction of frame width) into a pixel width for the scale filter.
+OUTPUT_WIDTH = 1080
+
+WATERMARK_TEXT_POSITIONS = {
+    "lower-right": "x=w-tw-50:y=h-th-50",
+    "lower-left": "x=50:y=h-th-50",
+    "upper-right": "x=w-tw-50:y=50",
+    "upper-left": "x=50:y=50",
+}
+
+WATERMARK_IMAGE_POSITIONS = {
+    "lower-right": "x=W-w-50:y=H-h-50",
+    "lower-left": "x=50:y=H-h-50",
+    "upper-right": "x=W-w-50:y=50",
+    "upper-left": "x=50:y=50",
+}
+
+
+def apply_watermark(input_path: str, output_path: str) -> bool:
+    """Apply text and/or image watermark overlays to a video via ffmpeg.
+
+    Reads configuration from environment variables:
+      - WATERMARK_ENABLED, WATERMARK_TEXT, WATERMARK_POSITION,
+        WATERMARK_OPACITY, WATERMARK_FONT_SIZE (text watermark)
+      - WATERMARK_IMAGE_ENABLED, WATERMARK_IMAGE_PATH, WATERMARK_IMAGE_SCALE
+        (image watermark)
+
+    If both are disabled, copies input_path to output_path unchanged.
+    Raises WatermarkError if watermarking is enabled but fails (missing
+    image file, invalid ffmpeg filter, or ffmpeg execution failure).
+    Returns True on success.
+    """
+    text_enabled = os.environ.get("WATERMARK_ENABLED", "false").lower() == "true"
+    image_enabled = os.environ.get(
+        "WATERMARK_IMAGE_ENABLED", "false").lower() == "true"
+
+    if not text_enabled and not image_enabled:
+        shutil.copy(input_path, output_path)
+        return True
+
+    position = os.environ.get("WATERMARK_POSITION", "lower-right")
+    input_args = ["-i", str(input_path)]
+    filter_chains = []
+    video_label = "0:v"
+
+    if image_enabled:
+        image_path = os.environ.get(
+            "WATERMARK_IMAGE_PATH", "assets/watermark.png")
+        if not os.path.exists(image_path):
+            raise WatermarkError(
+                f"WATERMARK_IMAGE_ENABLED=true but image not found at {image_path}")
+
+        try:
+            scale_fraction = float(
+                os.environ.get("WATERMARK_IMAGE_SCALE", "0.1"))
+        except ValueError as e:
+            raise WatermarkError(
+                f"Invalid WATERMARK_IMAGE_SCALE: {os.environ.get('WATERMARK_IMAGE_SCALE')!r}") from e
+
+        scale_width = max(1, int(OUTPUT_WIDTH * scale_fraction))
+        overlay_xy = WATERMARK_IMAGE_POSITIONS.get(
+            position, WATERMARK_IMAGE_POSITIONS["lower-right"])
+
+        input_args += ["-i", image_path]
+        filter_chains.append(f"[1:v]scale={scale_width}:-1[wmimg]")
+        filter_chains.append(
+            f"[{video_label}][wmimg]overlay={overlay_xy}[v_img]")
+        video_label = "v_img"
+
+    if text_enabled:
+        text = os.environ.get("WATERMARK_TEXT", "LUNARTECH.AI")
+        font_size = os.environ.get("WATERMARK_FONT_SIZE", "30")
+
+        try:
+            opacity = float(os.environ.get("WATERMARK_OPACITY", "0.7"))
+        except ValueError as e:
+            raise WatermarkError(
+                f"Invalid WATERMARK_OPACITY: {os.environ.get('WATERMARK_OPACITY')!r}") from e
+
+        text_xy = WATERMARK_TEXT_POSITIONS.get(
+            position, WATERMARK_TEXT_POSITIONS["lower-right"])
+        escaped_text = (
+            text.replace("\\", "\\\\").replace("'", "\\'").replace(":", "\\:")
+        )
+
+        filter_chains.append(
+            f"[{video_label}]drawtext=text='{escaped_text}':fontsize={font_size}:"
+            f"fontcolor=white@{opacity}:font='Anton':{text_xy}[v_out]"
+        )
+        video_label = "v_out"
+
+    filter_complex = ";".join(filter_chains)
+
+    ffmpeg_cmd = (
+        f"ffmpeg -y {' '.join(input_args)} "
+        f"-filter_complex \"{filter_complex}\" "
+        f"-map \"[{video_label}]\" -map 0:a? "
+        f"-c:v h264 -preset fast -crf 23 -c:a copy {output_path}"
+    )
+
+    try:
+        subprocess.run(ffmpeg_cmd, shell=True, check=True,
+                        capture_output=True, text=True)
+    except subprocess.CalledProcessError as e:
+        raise WatermarkError(
+            f"ffmpeg watermark command failed: {e.stderr}") from e
+
+    if not os.path.exists(output_path):
+        raise WatermarkError(
+            f"Watermark ffmpeg reported success but output file not found at {output_path}")
+
+    return True
+```
+
+Placed in `main.py` after `create_subtitles_with_ffmpeg()` (was line 238), before
+`process_clip()` (was line 241).
+
+**Deviations from the draft, and why:**
+1. **Single env-var naming scheme** (`WATERMARK_ENABLED` = text toggle, `WATERMARK_IMAGE_ENABLED`
+   = image toggle, shared `WATERMARK_POSITION` for both) — per Task 3's implemented scheme,
+   which superseded the draft's separate `WATERMARK_TEXT_ENABLED`/`WATERMARK_PATH`/etc. names.
+2. **Position values are `lower-right`/`lower-left`/`upper-right`/`upper-left`** (not
+   `bottom-right`/`top-left` from the draft) — matches Task 3's `WATERMARK_POSITION` default
+   of `"lower-right"`.
+3. **Raises `WatermarkError` on failure instead of graceful fallback-to-copy.** The execution
+   instructions for this task explicitly specified "Return True on success, raise on failure"
+   (matching the `download_from_youtube()` / `YouTubeDownloadError` pattern from Phase 2).
+   This **changes the error-handling contract from `PROJECT_PLAN.md` §3.5** ("ffmpeg overlay
+   fails → log warning, proceed without watermark"). **Task 5 must decide** whether
+   `process_clip()` catches `WatermarkError` and falls back to the un-watermarked clip (to
+   preserve the §3.5 graceful-degradation guarantee) or lets it propagate (failing the whole
+   clip/job). This is now an open decision for Task 5, flagged below.
+4. **`WATERMARK_IMAGE_SCALE` is a fraction of `OUTPUT_WIDTH` (1080px)**, not the draft's
+   fixed-pixel `WATERMARK_SCALE_WIDTH` — per Task 3.
+5. Image watermark uses plain `scale=...` (no `colorchannelmixer` opacity) — `WATERMARK_OPACITY`
+   only applies to the text watermark in this implementation. Image opacity control was not
+   requested in this task's instructions.
+6. Filter chains are always `;`-joined (the draft's comma/semicolon conditional was a no-op for
+   single-element lists and was simplified away).
+
+- [x] `apply_watermark()` function implemented
+- [x] `WATERMARK_TEXT_POSITIONS` and `WATERMARK_IMAGE_POSITIONS` dicts defined (renamed from
+      the draft's single `WATERMARK_POSITIONS` to have separate text/image position-string
+      formats, since `drawtext` and `overlay` use different coordinate variable names)
+- [ ] Graceful fallback on missing asset / ffmpeg failure — **NOT implemented** (raises
+      `WatermarkError` instead, per item 3 above — open decision for Task 5)
+- [x] `python3 -m py_compile main.py` passes
 
 ---
 
