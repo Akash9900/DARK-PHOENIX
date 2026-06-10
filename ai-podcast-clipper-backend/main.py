@@ -238,6 +238,126 @@ def create_subtitles_with_ffmpeg(transcript_segments: list, clip_start: float, c
     subprocess.run(ffmpeg_cmd, shell=True, check=True)
 
 
+class WatermarkError(Exception):
+    pass
+
+
+# Output videos are fixed at 1080x1920 (vertical), matching PlayResX/PlayResY
+# in create_subtitles_with_ffmpeg(). Used to convert WATERMARK_IMAGE_SCALE
+# (a fraction of frame width) into a pixel width for the scale filter.
+OUTPUT_WIDTH = 1080
+
+WATERMARK_TEXT_POSITIONS = {
+    "lower-right": "x=w-tw-50:y=h-th-50",
+    "lower-left": "x=50:y=h-th-50",
+    "upper-right": "x=w-tw-50:y=50",
+    "upper-left": "x=50:y=50",
+}
+
+WATERMARK_IMAGE_POSITIONS = {
+    "lower-right": "x=W-w-50:y=H-h-50",
+    "lower-left": "x=50:y=H-h-50",
+    "upper-right": "x=W-w-50:y=50",
+    "upper-left": "x=50:y=50",
+}
+
+
+def apply_watermark(input_path: str, output_path: str) -> bool:
+    """Apply text and/or image watermark overlays to a video via ffmpeg.
+
+    Reads configuration from environment variables:
+      - WATERMARK_ENABLED, WATERMARK_TEXT, WATERMARK_POSITION,
+        WATERMARK_OPACITY, WATERMARK_FONT_SIZE (text watermark)
+      - WATERMARK_IMAGE_ENABLED, WATERMARK_IMAGE_PATH, WATERMARK_IMAGE_SCALE
+        (image watermark)
+
+    If both are disabled, copies input_path to output_path unchanged.
+    Raises WatermarkError if watermarking is enabled but fails (missing
+    image file, invalid ffmpeg filter, or ffmpeg execution failure).
+    Returns True on success.
+    """
+    text_enabled = os.environ.get("WATERMARK_ENABLED", "false").lower() == "true"
+    image_enabled = os.environ.get(
+        "WATERMARK_IMAGE_ENABLED", "false").lower() == "true"
+
+    if not text_enabled and not image_enabled:
+        shutil.copy(input_path, output_path)
+        return True
+
+    position = os.environ.get("WATERMARK_POSITION", "lower-right")
+    input_args = ["-i", str(input_path)]
+    filter_chains = []
+    video_label = "0:v"
+
+    if image_enabled:
+        image_path = os.environ.get(
+            "WATERMARK_IMAGE_PATH", "assets/watermark.png")
+        if not os.path.exists(image_path):
+            raise WatermarkError(
+                f"WATERMARK_IMAGE_ENABLED=true but image not found at {image_path}")
+
+        try:
+            scale_fraction = float(
+                os.environ.get("WATERMARK_IMAGE_SCALE", "0.1"))
+        except ValueError as e:
+            raise WatermarkError(
+                f"Invalid WATERMARK_IMAGE_SCALE: {os.environ.get('WATERMARK_IMAGE_SCALE')!r}") from e
+
+        scale_width = max(1, int(OUTPUT_WIDTH * scale_fraction))
+        overlay_xy = WATERMARK_IMAGE_POSITIONS.get(
+            position, WATERMARK_IMAGE_POSITIONS["lower-right"])
+
+        input_args += ["-i", image_path]
+        filter_chains.append(f"[1:v]scale={scale_width}:-1[wmimg]")
+        filter_chains.append(
+            f"[{video_label}][wmimg]overlay={overlay_xy}[v_img]")
+        video_label = "v_img"
+
+    if text_enabled:
+        text = os.environ.get("WATERMARK_TEXT", "LUNARTECH.AI")
+        font_size = os.environ.get("WATERMARK_FONT_SIZE", "30")
+
+        try:
+            opacity = float(os.environ.get("WATERMARK_OPACITY", "0.7"))
+        except ValueError as e:
+            raise WatermarkError(
+                f"Invalid WATERMARK_OPACITY: {os.environ.get('WATERMARK_OPACITY')!r}") from e
+
+        text_xy = WATERMARK_TEXT_POSITIONS.get(
+            position, WATERMARK_TEXT_POSITIONS["lower-right"])
+        escaped_text = (
+            text.replace("\\", "\\\\").replace("'", "\\'").replace(":", "\\:")
+        )
+
+        filter_chains.append(
+            f"[{video_label}]drawtext=text='{escaped_text}':fontsize={font_size}:"
+            f"fontcolor=white@{opacity}:font='Anton':{text_xy}[v_out]"
+        )
+        video_label = "v_out"
+
+    filter_complex = ";".join(filter_chains)
+
+    ffmpeg_cmd = (
+        f"ffmpeg -y {' '.join(input_args)} "
+        f"-filter_complex \"{filter_complex}\" "
+        f"-map \"[{video_label}]\" -map 0:a? "
+        f"-c:v h264 -preset fast -crf 23 -c:a copy {output_path}"
+    )
+
+    try:
+        subprocess.run(ffmpeg_cmd, shell=True, check=True,
+                        capture_output=True, text=True)
+    except subprocess.CalledProcessError as e:
+        raise WatermarkError(
+            f"ffmpeg watermark command failed: {e.stderr}") from e
+
+    if not os.path.exists(output_path):
+        raise WatermarkError(
+            f"Watermark ffmpeg reported success but output file not found at {output_path}")
+
+    return True
+
+
 def process_clip(base_dir: str, original_video_path: str, s3_key: str, start_time: float, end_time: float, clip_index: int, transcript_segments: list):
     clip_name = f"clip_{clip_index}"
     s3_key_dir = os.path.dirname(s3_key)
