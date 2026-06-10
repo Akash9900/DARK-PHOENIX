@@ -1,3 +1,4 @@
+import base64
 import glob
 import json
 import pathlib
@@ -11,6 +12,9 @@ import cv2
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 import ffmpegcv
+from google.oauth2 import service_account
+from googleapiclient.discovery import build
+from googleapiclient.http import MediaFileUpload
 import modal
 import numpy as np
 from pydantic import BaseModel
@@ -356,6 +360,50 @@ def apply_watermark(input_path: str, output_path: str) -> bool:
             f"Watermark ffmpeg reported success but output file not found at {output_path}")
 
     return True
+
+
+class DriveUploadError(Exception):
+    pass
+
+
+def upload_to_drive(file_path: str, folder_id: str, file_name: str) -> str:
+    """Upload a local file to a Google Drive folder using a service account.
+
+    Reads GOOGLE_DRIVE_CREDENTIALS_JSON from the environment, which must be a
+    base64-encoded JSON service account key. Raises DriveUploadError if the
+    env var is missing/invalid or the upload fails. Returns the uploaded
+    file's Google Drive file ID on success.
+    """
+    credentials_b64 = os.environ.get("GOOGLE_DRIVE_CREDENTIALS_JSON")
+    if not credentials_b64:
+        raise DriveUploadError(
+            "GOOGLE_DRIVE_CREDENTIALS_JSON environment variable is not set")
+
+    try:
+        credentials_json = base64.b64decode(credentials_b64)
+        credentials_info = json.loads(credentials_json)
+    except (ValueError, json.JSONDecodeError) as e:
+        raise DriveUploadError(
+            f"Failed to decode GOOGLE_DRIVE_CREDENTIALS_JSON: {e}") from e
+
+    try:
+        credentials = service_account.Credentials.from_service_account_info(
+            credentials_info, scopes=["https://www.googleapis.com/auth/drive.file"])
+        drive_service = build("drive", "v3", credentials=credentials)
+
+        file_metadata = {"name": file_name, "parents": [folder_id]}
+        media = MediaFileUpload(file_path, resumable=True)
+        uploaded_file = drive_service.files().create(
+            body=file_metadata, media_body=media, fields="id").execute()
+    except Exception as e:
+        raise DriveUploadError(f"Google Drive upload failed: {e}") from e
+
+    file_id = uploaded_file.get("id")
+    if not file_id:
+        raise DriveUploadError(
+            "Google Drive API reported success but returned no file ID")
+
+    return file_id
 
 
 def process_clip(base_dir: str, original_video_path: str, s3_key: str, start_time: float, end_time: float, clip_index: int, transcript_segments: list):
