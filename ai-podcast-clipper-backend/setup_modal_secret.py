@@ -23,7 +23,15 @@ secret = modal.Secret.from_dict({
     "AWS_SECRET_ACCESS_KEY": os.getenv("AWS_SECRET_ACCESS_KEY"),
     "AWS_REGION": os.getenv("AWS_REGION"),
     "S3_BUCKET_NAME": os.getenv("S3_BUCKET_NAME"),
-    "MAX_CLIPS": os.getenv("MAX_CLIPS", "10")
+    "MAX_CLIPS": os.getenv("MAX_CLIPS", "10"),
+    "WATERMARK_ENABLED": os.getenv("WATERMARK_ENABLED", "false"),
+    "WATERMARK_TEXT": os.getenv("WATERMARK_TEXT", "LUNARTECH.AI"),
+    "WATERMARK_POSITION": os.getenv("WATERMARK_POSITION", "lower-right"),
+    "WATERMARK_OPACITY": os.getenv("WATERMARK_OPACITY", "0.7"),
+    "WATERMARK_FONT_SIZE": os.getenv("WATERMARK_FONT_SIZE", "30"),
+    "WATERMARK_IMAGE_ENABLED": os.getenv("WATERMARK_IMAGE_ENABLED", "false"),
+    "WATERMARK_IMAGE_PATH": os.getenv("WATERMARK_IMAGE_PATH", "assets/watermark.png"),
+    "WATERMARK_IMAGE_SCALE": os.getenv("WATERMARK_IMAGE_SCALE", "0.1")
 })
 
 print("Secret object created successfully!")
@@ -36,6 +44,14 @@ print(f"  - AWS_SECRET_ACCESS_KEY: {'✓ Set' if os.getenv('AWS_SECRET_ACCESS_KE
 print(f"  - AWS_REGION: {'✓ Set' if os.getenv('AWS_REGION') else '✗ Missing'}")
 print(f"  - S3_BUCKET_NAME: {'✓ Set' if os.getenv('S3_BUCKET_NAME') else '✗ Missing'}")
 print(f"  - MAX_CLIPS: {os.getenv('MAX_CLIPS', '10')}")
+print(f"  - WATERMARK_ENABLED: {os.getenv('WATERMARK_ENABLED', 'false')}")
+print(f"  - WATERMARK_TEXT: {os.getenv('WATERMARK_TEXT', 'LUNARTECH.AI')}")
+print(f"  - WATERMARK_POSITION: {os.getenv('WATERMARK_POSITION', 'lower-right')}")
+print(f"  - WATERMARK_OPACITY: {os.getenv('WATERMARK_OPACITY', '0.7')}")
+print(f"  - WATERMARK_FONT_SIZE: {os.getenv('WATERMARK_FONT_SIZE', '30')}")
+print(f"  - WATERMARK_IMAGE_ENABLED: {os.getenv('WATERMARK_IMAGE_ENABLED', 'false')}")
+print(f"  - WATERMARK_IMAGE_PATH: {os.getenv('WATERMARK_IMAGE_PATH', 'assets/watermark.png')}")
+print(f"  - WATERMARK_IMAGE_SCALE: {os.getenv('WATERMARK_IMAGE_SCALE', '0.1')}")
 print("")
 print("To create a PERSISTENT secret, go to https://modal.com/secrets")
 print("and create a secret named 'ai-podcast-clipper-secret' with these keys.")

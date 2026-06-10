@@ -70,10 +70,11 @@ supporting the image-overlay design from `PROJECT_PLAN.md` §3.2.
 - **File:** `ai-podcast-clipper-backend/assets/README.md` (new) — documents expected format:
   PNG with alpha channel, recommended max width 200px (matches `scale=200:-1` in the ffmpeg
   filter below)
-- [ ] `assets/` directory created
+- [x] `assets/` directory created (empty, with `.gitkeep` placeholder so git tracks the
+      directory — no `watermark.png` or `README.md` added in this pass)
 - [ ] Placeholder `watermark.png` added (or documented as a manual follow-up if no asset
-      available — see Open Items)
-- [ ] `assets/README.md` documents asset requirements
+      available — see Open Items) — **still outstanding**
+- [ ] `assets/README.md` documents asset requirements — **still outstanding**
 
 ---
 
@@ -115,8 +116,28 @@ supporting the image-overlay design from `PROJECT_PLAN.md` §3.2.
 
 ### Task 3 — Add watermark env vars to `setup_modal_secret.py` (≈30 min)
 
+**Implemented naming scheme (deviates from the draft above)** — the executed instructions used
+a different, simpler 8-variable naming scheme rather than the 9-variable `WATERMARK_TEXT_*` /
+`WATERMARK_*` split drafted earlier. **This implemented scheme is now the source of truth** for
+Task 4 (`apply_watermark()`) — the env var names below must be used when implementing it,
+*not* the `WATERMARK_TEXT_ENABLED` / `WATERMARK_PATH` / `WATERMARK_SCALE_WIDTH` /
+`WATERMARK_TEXT_POSITION` / `WATERMARK_TEXT_FONT_SIZE` / `WATERMARK_TEXT_OPACITY` names from
+the Task 4 draft.
+
 - **File:** `ai-podcast-clipper-backend/setup_modal_secret.py`
-- **Add to secret dict** (following the `MAX_CLIPS` pattern from Phase 1):
+- **Before:**
+  ```python
+  secret = modal.Secret.from_dict({
+      "GEMINI_API_KEY": os.getenv("GEMINI_API_KEY"),
+      "AUTH_TOKEN": os.getenv("PROCESS_VIDEO_ENDPOINT_AUTH"),
+      "AWS_ACCESS_KEY_ID": os.getenv("AWS_ACCESS_KEY_ID"),
+      "AWS_SECRET_ACCESS_KEY": os.getenv("AWS_SECRET_ACCESS_KEY"),
+      "AWS_REGION": os.getenv("AWS_REGION"),
+      "S3_BUCKET_NAME": os.getenv("S3_BUCKET_NAME"),
+      "MAX_CLIPS": os.getenv("MAX_CLIPS", "10")
+  })
+  ```
+- **After:**
   ```python
   secret = modal.Secret.from_dict({
       "GEMINI_API_KEY": os.getenv("GEMINI_API_KEY"),
@@ -127,26 +148,44 @@ supporting the image-overlay design from `PROJECT_PLAN.md` §3.2.
       "S3_BUCKET_NAME": os.getenv("S3_BUCKET_NAME"),
       "MAX_CLIPS": os.getenv("MAX_CLIPS", "10"),
       "WATERMARK_ENABLED": os.getenv("WATERMARK_ENABLED", "false"),
-      "WATERMARK_PATH": os.getenv("WATERMARK_PATH", "/assets/watermark.png"),
-      "WATERMARK_POSITION": os.getenv("WATERMARK_POSITION", "bottom-right"),
-      "WATERMARK_OPACITY": os.getenv("WATERMARK_OPACITY", "0.8"),
-      "WATERMARK_SCALE_WIDTH": os.getenv("WATERMARK_SCALE_WIDTH", "200"),
-      "WATERMARK_TEXT_ENABLED": os.getenv("WATERMARK_TEXT_ENABLED", "false"),
-      "WATERMARK_TEXT": os.getenv("WATERMARK_TEXT", ""),
-      "WATERMARK_TEXT_POSITION": os.getenv("WATERMARK_TEXT_POSITION", "bottom-left"),
-      "WATERMARK_TEXT_FONT_SIZE": os.getenv("WATERMARK_TEXT_FONT_SIZE", "36"),
-      "WATERMARK_TEXT_OPACITY": os.getenv("WATERMARK_TEXT_OPACITY", "0.7"),
+      "WATERMARK_TEXT": os.getenv("WATERMARK_TEXT", "LUNARTECH.AI"),
+      "WATERMARK_POSITION": os.getenv("WATERMARK_POSITION", "lower-right"),
+      "WATERMARK_OPACITY": os.getenv("WATERMARK_OPACITY", "0.7"),
+      "WATERMARK_FONT_SIZE": os.getenv("WATERMARK_FONT_SIZE", "30"),
+      "WATERMARK_IMAGE_ENABLED": os.getenv("WATERMARK_IMAGE_ENABLED", "false"),
+      "WATERMARK_IMAGE_PATH": os.getenv("WATERMARK_IMAGE_PATH", "assets/watermark.png"),
+      "WATERMARK_IMAGE_SCALE": os.getenv("WATERMARK_IMAGE_SCALE", "0.1")
   })
   ```
-- **Add status print lines** (matching existing pattern):
+- **Status print lines added** (after the `MAX_CLIPS` line):
   ```python
   print(f"  - WATERMARK_ENABLED: {os.getenv('WATERMARK_ENABLED', 'false')}")
-  print(f"  - WATERMARK_TEXT_ENABLED: {os.getenv('WATERMARK_TEXT_ENABLED', 'false')}")
+  print(f"  - WATERMARK_TEXT: {os.getenv('WATERMARK_TEXT', 'LUNARTECH.AI')}")
+  print(f"  - WATERMARK_POSITION: {os.getenv('WATERMARK_POSITION', 'lower-right')}")
+  print(f"  - WATERMARK_OPACITY: {os.getenv('WATERMARK_OPACITY', '0.7')}")
+  print(f"  - WATERMARK_FONT_SIZE: {os.getenv('WATERMARK_FONT_SIZE', '30')}")
+  print(f"  - WATERMARK_IMAGE_ENABLED: {os.getenv('WATERMARK_IMAGE_ENABLED', 'false')}")
+  print(f"  - WATERMARK_IMAGE_PATH: {os.getenv('WATERMARK_IMAGE_PATH', 'assets/watermark.png')}")
+  print(f"  - WATERMARK_IMAGE_SCALE: {os.getenv('WATERMARK_IMAGE_SCALE', '0.1')}")
   ```
-- [ ] All 9 watermark env vars added with safe defaults (watermark **off** by default — matches
-      `PROJECT_PLAN.md` §3.5: "`WATERMARK_ENABLED` unset → default to `false`")
-- [ ] Status print lines added
-- [ ] `python3 -m py_compile setup_modal_secret.py` passes
+- [x] All 8 watermark env vars added with safe defaults (text watermark **off** by default via
+      `WATERMARK_ENABLED=false`; image watermark off via `WATERMARK_IMAGE_ENABLED=false`)
+- [x] Status print lines added
+- [x] `python3 -m py_compile setup_modal_secret.py` passes
+
+**Updated env var reference (supersedes the table near the bottom of this document for Task 4
+onward):**
+
+| Variable | Default | Description |
+|----------|---------|-------------|
+| `WATERMARK_ENABLED` | `false` | Enables text watermark overlay (`drawtext`) |
+| `WATERMARK_TEXT` | `LUNARTECH.AI` | Text content to overlay |
+| `WATERMARK_POSITION` | `lower-right` | Text position: `lower-right`, `lower-left`, `upper-right`, `upper-left` |
+| `WATERMARK_OPACITY` | `0.7` | Text alpha, `0.0`–`1.0` |
+| `WATERMARK_FONT_SIZE` | `30` | Font size in px |
+| `WATERMARK_IMAGE_ENABLED` | `false` | Enables image (logo) watermark overlay |
+| `WATERMARK_IMAGE_PATH` | `assets/watermark.png` | Path to watermark PNG |
+| `WATERMARK_IMAGE_SCALE` | `0.1` | Watermark image scale as a fraction of frame width (e.g. `0.1` = 10% of frame width), instead of the draft's fixed-pixel `WATERMARK_SCALE_WIDTH` |
 
 ---
 
