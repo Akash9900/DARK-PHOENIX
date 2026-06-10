@@ -484,6 +484,16 @@ def process_clip(base_dir: str, original_video_path: str, s3_key: str, start_tim
         clip_path, os.environ["S3_BUCKET_NAME"], output_s3_key,
         ExtraArgs={"Tagging": "Environment=clip"})
 
+    drive_enabled = os.environ.get("GOOGLE_DRIVE_ENABLED", "false").lower() == "true"
+    drive_folder_id = os.environ.get("GOOGLE_DRIVE_FOLDER_ID")
+    if drive_enabled and drive_folder_id:
+        try:
+            drive_file_id = upload_to_drive(
+                str(clip_path), drive_folder_id, f"{clip_name}.mp4")
+            print(f"Uploaded {clip_name} to Google Drive (file ID: {drive_file_id})")
+        except DriveUploadError as e:
+            print(f"WARNING: Google Drive upload failed, clip remains available in S3: {e}")
+
 
 class YouTubeDownloadError(Exception):
     pass

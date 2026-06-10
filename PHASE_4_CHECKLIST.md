@@ -88,22 +88,52 @@ a separate per-user "Export to Drive" step copies/shares from there) — out of 
 
 ---
 
-### Task 2 — Wire `upload_to_drive()` into `process_clip()` (not started)
+### Task 2 — Wire `upload_to_drive()` into `process_clip()` (DONE)
 
-- Add `GOOGLE_DRIVE_FOLDER_ID` env var (target folder ID) and `GOOGLE_DRIVE_ENABLED` toggle
-  (default `false`, so Drive upload is opt-in like watermarking).
-- After the S3 upload in `process_clip()`, if enabled, call
-  `upload_to_drive(str(clip_path), folder_id, f"{clip_name}.mp4")` in a try/except
-  `DriveUploadError`, log a warning on failure, and **do not fail the job** — S3 upload already
-  succeeded, per the graceful-fallback requirement in this task's context.
-- Decide whether to store the returned Drive file ID anywhere (e.g., return it from
-  `process_clip()` for the caller to persist to the DB) — needs a DB field if so (out of scope
-  unless requested).
+- Added `GOOGLE_DRIVE_FOLDER_ID` env var (target folder ID, no default) and `GOOGLE_DRIVE_ENABLED`
+  toggle (default `false`, opt-in like watermarking) to `setup_modal_secret.py`.
+- After the S3 upload in `process_clip()`, if `GOOGLE_DRIVE_ENABLED == "true"` and
+  `GOOGLE_DRIVE_FOLDER_ID` is set, calls `upload_to_drive(str(clip_path), drive_folder_id,
+  f"{clip_name}.mp4")` in a try/except `DriveUploadError`. On success, logs the returned Drive
+  file ID. On failure, logs a warning and continues — **the job is not failed**, since S3 upload
+  already succeeded.
+- If `GOOGLE_DRIVE_ENABLED` is `false` or `GOOGLE_DRIVE_FOLDER_ID` is unset, the Drive step is
+  skipped silently (no log noise for the default/disabled case).
+- The returned Drive file ID is only logged for now, not persisted to the DB (per Task 1's
+  "don't need to store it yet" — DB persistence is Task 3's concern, if needed).
 
-- [ ] `GOOGLE_DRIVE_ENABLED` / `GOOGLE_DRIVE_FOLDER_ID` env vars added to `setup_modal_secret.py`
-- [ ] `upload_to_drive()` called after S3 upload, gated by `GOOGLE_DRIVE_ENABLED`
-- [ ] `DriveUploadError` caught, logged, does not fail the clip/job
-- [ ] `python3 -m py_compile main.py` passes
+**Before:**
+```python
+    s3_client = boto3.client("s3")
+    s3_client.upload_file(
+        clip_path, os.environ["S3_BUCKET_NAME"], output_s3_key,
+        ExtraArgs={"Tagging": "Environment=clip"})
+```
+
+**After:**
+```python
+    s3_client = boto3.client("s3")
+    s3_client.upload_file(
+        clip_path, os.environ["S3_BUCKET_NAME"], output_s3_key,
+        ExtraArgs={"Tagging": "Environment=clip"})
+
+    drive_enabled = os.environ.get("GOOGLE_DRIVE_ENABLED", "false").lower() == "true"
+    drive_folder_id = os.environ.get("GOOGLE_DRIVE_FOLDER_ID")
+    if drive_enabled and drive_folder_id:
+        try:
+            drive_file_id = upload_to_drive(
+                str(clip_path), drive_folder_id, f"{clip_name}.mp4")
+            print(f"Uploaded {clip_name} to Google Drive (file ID: {drive_file_id})")
+        except DriveUploadError as e:
+            print(f"WARNING: Google Drive upload failed, clip remains available in S3: {e}")
+```
+
+- [x] `GOOGLE_DRIVE_ENABLED` / `GOOGLE_DRIVE_FOLDER_ID` env vars added to `setup_modal_secret.py`
+- [x] `upload_to_drive()` called after S3 upload, gated by `GOOGLE_DRIVE_ENABLED` and
+      `GOOGLE_DRIVE_FOLDER_ID`
+- [x] `DriveUploadError` caught, logged, does not fail the clip/job
+- [x] `python3 -m py_compile main.py` passes
+- [x] `python3 -m py_compile setup_modal_secret.py` passes
 
 ---
 
@@ -130,8 +160,8 @@ a separate per-user "Export to Drive" step copies/shares from there) — out of 
 | Variable | Default | Description |
 |----------|---------|-------------|
 | `GOOGLE_DRIVE_CREDENTIALS_JSON` | *(none)* | Base64-encoded JSON service account key. Required for any Drive upload. |
-| `GOOGLE_DRIVE_ENABLED` | `false` *(Task 2)* | Enables the Drive upload step in `process_clip()`. |
-| `GOOGLE_DRIVE_FOLDER_ID` | *(none)* *(Task 2)* | Destination Drive folder ID. The service account must have write access (folder shared with its `client_email`). |
+| `GOOGLE_DRIVE_ENABLED` | `false` | Enables the Drive upload step in `process_clip()`. |
+| `GOOGLE_DRIVE_FOLDER_ID` | *(none)* | Destination Drive folder ID. The service account must have write access (folder shared with its `client_email`). |
 
 ---
 
