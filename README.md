@@ -127,6 +127,57 @@ Copy the `whsec_…` secret it prints into `STRIPE_WEBHOOK_SECRET`.
 | backend  | `modal deploy main.py` | Deploy/redeploy the worker |
 | backend  | `modal run main.py` | Run a one-off invocation |
 
+## Deployment
+
+The frontend and backend are deployed independently to different platforms.
+
+### Frontend → Vercel
+
+The Next.js frontend is deployed to Vercel and auto-deploys on every push to `main`.
+
+- **Live URL**: `https://dark-phoenix-akash-salvis-projects.vercel.app`
+- Set all environment variables from `.env.example` in the Vercel dashboard
+  under **Settings → Environment Variables**
+- The `postinstall` script runs `prisma generate` automatically during build
+- ESLint and TypeScript checking are skipped during build (`next.config.js`)
+
+### Backend → Modal (deployed separately)
+
+The Python/Modal backend runs on GPU compute and must be deployed via the
+Modal CLI. It is **not** part of the Vercel deployment.
+
+```bash
+cd ai-podcast-clipper-backend
+pip install -r requirements.txt
+modal token new                    # authenticate with Modal (one-time)
+python setup_modal_secret.py       # push env vars to Modal Secret
+modal deploy main.py               # deploy the worker
+```
+
+After deploying, Modal prints the public HTTPS endpoint URL. Set it as
+`PROCESS_VIDEO_ENDPOINT` in both your local `.env` and Vercel environment
+variables so the frontend can call it.
+
+The backend processes video independently — it pulls source files from S3,
+runs the AI pipeline (ASD → transcription → moment selection → clip render),
+and writes clips back to S3. The frontend polls for results.
+
+### Environment Variable Checklist (Vercel)
+
+These must be set in Vercel for the deployed app to function:
+
+| Variable | Source |
+|----------|--------|
+| `DATABASE_URL` | Supabase connection string |
+| `AUTH_SECRET` | `npx auth secret` |
+| `AUTH_DISCORD_ID` / `AUTH_DISCORD_SECRET` | Discord Developer Portal |
+| `AWS_ACCESS_KEY_ID` / `AWS_SECRET_ACCESS_KEY` / `AWS_REGION` / `S3_BUCKET_NAME` | AWS IAM |
+| `PROCESS_VIDEO_ENDPOINT` | Output of `modal deploy main.py` |
+| `PROCESS_VIDEO_ENDPOINT_AUTH` | Shared bearer token (you choose) |
+| `STRIPE_SECRET_KEY` / `STRIPE_WEBHOOK_SECRET` | Stripe Dashboard |
+| `NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY` | Stripe Dashboard |
+| `INNGEST_SIGNING_KEY` / `INNGEST_EVENT_KEY` | Inngest Dashboard |
+
 ## Security
 
 - `.env` is gitignored. `.env.example` is the only env file that should ever
