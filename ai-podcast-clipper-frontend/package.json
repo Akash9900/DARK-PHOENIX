@@ -14,7 +14,7 @@
     "db:migrate": "prisma migrate deploy",
     "format:check": "prettier --check \"**/*.{ts,tsx,js,jsx,mdx}\" --cache",
     "format:write": "prettier --write \"**/*.{ts,tsx,js,jsx,mdx}\" --cache",
-    "postinstall": "prisma generate",
+    "postinstall": "npm list prisma > /dev/null 2>&1 && prisma generate || true",
     "lint": "next lint",
     "lint:fix": "next lint --fix",
     "preview": "next build && next start",
