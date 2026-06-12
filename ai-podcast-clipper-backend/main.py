@@ -1,41 +1,55 @@
 import base64
 import glob
 import json
+import os
 import pathlib
 import pickle
 import shutil
 import subprocess
 import time
 import uuid
+
 import boto3
-import cv2
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
-import ffmpegcv
+from google import genai
 from google.oauth2 import service_account
 from googleapiclient.discovery import build
 from googleapiclient.http import MediaFileUpload
 import modal
 import numpy as np
 from pydantic import BaseModel
-import os
-from google import genai
-
 import pysubs2
 from tqdm import tqdm
-import whisperx
+
+try:
+    import cv2
+    import ffmpegcv
+    import whisperx
+except ImportError:
+    pass
+
+
+from typing import Optional
 
 
 class ProcessVideoRequest(BaseModel):
     s3_key: str
     source: str = "file"
-    youtube_url: str | None = None
+    youtube_url: Optional[str] = None
 
 
 image = (modal.Image.from_registry(
     "nvidia/cuda:12.4.0-devel-ubuntu22.04", add_python="3.11")
     .apt_install(["ffmpeg", "libgl1-mesa-glx", "wget", "libcudnn8", "libcudnn8-dev", "pkg-config", "libavformat-dev", "libavcodec-dev", "libavdevice-dev", "libavutil-dev", "libswscale-dev", "libswresample-dev", "libavfilter-dev", "clang", "build-essential", "gcc", "git"])
-    .pip_install_from_requirements("requirements.txt")
+    .pip_install("tqdm", "torch==2.0.1", "torchaudio==2.0.2", "torchvision==0.15.2",
+                 "opencv-python", "ffmpegcv", "numpy<2.0", "python_speech_features",
+                 "scipy", "scenedetect", "scikit-learn", "gdown", "pandas",
+                 "transformers", "accelerate", "datasets", "google-genai",
+                 "pysubs2", "boto3", "fastapi[standard]", "pyannote-audio==3.1.1",
+                 "yt-dlp", "google-auth", "google-auth-httplib2",
+                 "google-auth-oauthlib", "google-api-python-client")
+    .run_commands(["pip install --no-build-isolation 'whisperx @ git+https://github.com/m-bain/whisperx.git@v3.2.0'"])
     .run_commands([
         "mkdir -p /usr/share/fonts/truetype/custom",
         "wget -O /usr/share/fonts/truetype/custom/Anton-Regular.ttf https://github.com/google/fonts/raw/main/ofl/anton/Anton-Regular.ttf",
