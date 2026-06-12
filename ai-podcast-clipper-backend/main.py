@@ -42,13 +42,16 @@ class ProcessVideoRequest(BaseModel):
 image = (modal.Image.from_registry(
     "nvidia/cuda:12.4.0-devel-ubuntu22.04", add_python="3.11")
     .apt_install(["ffmpeg", "libgl1-mesa-glx", "wget", "libcudnn8", "libcudnn8-dev", "pkg-config", "libavformat-dev", "libavcodec-dev", "libavdevice-dev", "libavutil-dev", "libswscale-dev", "libswresample-dev", "libavfilter-dev", "clang", "build-essential", "gcc", "git"])
-    .pip_install("tqdm", "torch==2.0.1", "torchaudio==2.0.2", "torchvision==0.15.2",
-                 "opencv-python", "ffmpegcv", "numpy<2.0", "python_speech_features",
-                 "scipy", "scenedetect", "scikit-learn", "gdown", "pandas",
-                 "transformers", "accelerate", "datasets", "google-genai",
-                 "pysubs2", "boto3", "fastapi[standard]", "pyannote-audio==3.1.1",
-                 "yt-dlp", "google-auth", "google-auth-httplib2",
-                 "google-auth-oauthlib", "google-api-python-client")
+    .pip_install("torch==2.0.1", "torchaudio==2.0.2", "torchvision==0.15.2", "numpy==1.26.4")
+    .pip_install("opencv-python==4.10.0.84", "ffmpegcv==0.3.18", "python_speech_features==0.6",
+                 "scipy==1.14.1", "scenedetect==0.6.5", "scikit-learn==1.5.2",
+                 "gdown==5.2.0", "pandas==2.2.3", "tqdm==4.67.1", "pysubs2==1.8.1")
+    .pip_install("huggingface-hub==1.10.0", "lightning==2.0.3", "pyannote-audio==3.1.1")
+    .pip_install("transformers==4.46.3", "accelerate==1.1.1", "datasets==3.1.0")
+    .pip_install("google-genai==1.5.0", "google-auth==2.36.0", "google-auth-httplib2==0.2.0",
+                 "google-auth-oauthlib==1.2.1", "google-api-python-client==2.155.0")
+    .pip_install("boto3==1.35.81", "fastapi[standard]==0.115.6", "yt-dlp==2024.12.23")
+    .pip_install("Cython", "setuptools<81")
     .run_commands(["pip install --no-build-isolation 'whisperx @ git+https://github.com/m-bain/whisperx.git@v3.2.0'"])
     .run_commands([
         "mkdir -p /usr/share/fonts/truetype/custom",
